@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -18,6 +20,7 @@ const brandingRoutes = require('./routes/branding');
 const eventsRoutes = require('./routes/events');
 const learningRoutes = require('./routes/learning');
 const notificationsRoutes = require('./routes/notifications');
+const { requireAuth } = require('./middleware/authMiddleware');
 
 const path = require('path');
 const fs = require('fs');
@@ -34,24 +37,66 @@ if (!fs.existsSync(uploadsDir)) {
 // Import Morgan for HTTP request logging
 const morgan = require('morgan');
 
-app.use(cors());
-app.use(express.json());
+// ── Security Middleware ────────────────────────────────────────────────────────
+
+// HTTP security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Restrict CORS to the Vite frontend origin only
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Global rate limiter: max 200 requests per 15 min per IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Strict limiter for auth endpoints: max 15 requests per 15 min per IP
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { error: 'Too many login attempts. Please wait 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Strict limiter for compiler: max 20 requests per 15 min per IP
+const compilerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many code execution requests. Please wait.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use(globalLimiter);
+app.use(express.json({ limit: '2mb' }));
 
 // Serve uploads directory statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Set up detailed API logging
-app.use(morgan('dev')); // 'dev' format logs concise, colored output
+app.use(morgan('dev'));
 
-// API Routes
-app.use('/api/auth', authRoutes);
+// ── API Routes ─────────────────────────────────────────────────────────────────
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/members', memberRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/discussions', discussionsRoutes);
 app.use('/api/admin/join-requests', joinRequestsRoutes);
 app.use('/api/admin/logs', logsRoutes);
-app.use('/api/compiler', compilerRoutes);
+app.use('/api/compiler', compilerLimiter, compilerRoutes);
 app.use('/api/cms', cmsRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/resources', resourcesRoutes);
@@ -64,7 +109,7 @@ app.use('/api/notifications', notificationsRoutes);
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-app.get('/api/init', async (req, res) => {
+app.get('/api/init', requireAuth, async (req, res) => {
   try {
     const adminUsers = await prisma.user.findMany({ where: { isAdmin: true }, include: { permissions: true } });
     const dbBranding = await prisma.clubBranding.findFirst() || {};

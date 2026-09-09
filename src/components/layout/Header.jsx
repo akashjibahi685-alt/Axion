@@ -114,15 +114,16 @@ export function Header() {
 
       {/* Right Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {/* Quick Action Dropdown */}
+        {/* Quick Action Dropdown — admin/staff only */}
+        {currentUser?.isAdmin || (currentUser?.role && currentUser.role !== 'Member') ? (
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
             className="btn btn-primary"
-            style={{ fontSize: '0.82rem', padding: '8px 14px' }}
+            style={{ padding: '8px' }}
+            title="Quick Create"
           >
-            <Plus size={16} />
-            <span>Quick Create</span>
+            <Plus size={18} />
           </button>
 
           {isQuickActionsOpen && (
@@ -202,16 +203,16 @@ export function Header() {
             </>
           )}
         </div>
+        ) : null}
 
         {/* Live Site Preview Toggle */}
         <button
           onClick={() => setIsLivePreviewOpen(true)}
           className="btn btn-secondary"
-          style={{ fontSize: '0.82rem', padding: '8px 14px', gap: '6px' }}
-          title="Open Public Site Preview"
+          style={{ padding: '8px' }}
+          title="Live Preview"
         >
-          <ExternalLink size={15} color="var(--cyan-accent)" />
-          <span>Live Preview</span>
+          <ExternalLink size={18} color="var(--cyan-accent)" />
         </button>
 
         {/* Theme Toggle */}

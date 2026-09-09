@@ -23,7 +23,7 @@ router.post('/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
-    const fileUrl = `http://localhost:3001/uploads/${req.file.filename}`;
+    const fileUrl = `/uploads/${req.file.filename}`;
     res.json({ success: true, url: fileUrl });
   } catch (error) {
     console.error('File upload error:', error);

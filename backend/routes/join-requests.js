@@ -1,12 +1,13 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
+const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Get all join requests
-router.get('/', async (req, res) => {
+// Get all join requests — requires admin auth
+router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const requests = await prisma.joinRequest.findMany({
       orderBy: { submittedAt: 'desc' }
@@ -18,8 +19,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Approve a join request
-router.post('/:id/approve', async (req, res) => {
+// Approve a join request — requires admin auth
+router.post('/:id/approve', requireAuth, requireAdmin, async (req, res) => {
   try {
     const joinRequest = await prisma.joinRequest.findUnique({
       where: { id: req.params.id }
@@ -82,8 +83,8 @@ router.post('/:id/approve', async (req, res) => {
   }
 });
 
-// Reject a join request
-router.post('/:id/reject', async (req, res) => {
+// Reject a join request — requires admin auth
+router.post('/:id/reject', requireAuth, requireAdmin, async (req, res) => {
   try {
     const updatedRequest = await prisma.joinRequest.update({
       where: { id: req.params.id },

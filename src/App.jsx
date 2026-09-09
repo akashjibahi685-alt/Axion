@@ -15,6 +15,7 @@ import UserDashboard from './components/modules/UserDashboard';
 import { IDE } from './components/modules/IDE';
 import DiscussionForum from './components/modules/DiscussionForum';
 import { ActivityAudit } from './components/modules/ActivityAudit';
+import { RoleManager } from './components/modules/RoleManager';
 import { LivePortalPreview } from './components/public/LivePortalPreview';
 import { LandingPage } from './components/public/LandingPage';
 import { AdminLogin } from './components/auth/AdminLogin';
@@ -68,6 +69,8 @@ function DashboardShell() {
         return <NotificationCenter />;
       case 'settings':
         return <SettingsPanel />;
+      case 'roles':
+        return <RoleManager />;
       case 'audit':
         return <ActivityAudit />;
       case 'profile':

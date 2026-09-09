@@ -40,3 +40,8 @@ dist-ssr
 
 # Prisma generated
 prisma/generated/
+
+# Uploads and temporary files
+uploads/*
+!uploads/.gitkeep
+temp/

@@ -11,9 +11,44 @@ export function ClubProvider({ children }) {
   const [data, setData] = useState(initialClubData);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Fetch initial state from the backend
+  // Authentication State — declared first so authFetch can use it
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(AUTH_SESSION_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (err) {
+      console.error('Error loading auth session', err);
+    }
+    return null;
+  });
+
+  // Helper: send authenticated fetch requests with the current user's JWT token
+  const authFetch = (url, options = {}) => {
+    const token = currentUser?.token;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    return fetch(url, { ...options, headers });
+  };
+
+  // On mount: restore data from localStorage cache immediately
   useEffect(() => {
-    fetch('/api/init')
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setData(prev => ({ ...prev, ...parsed }));
+      }
+    } catch (e) { /* ignore */ }
+    setIsDataLoaded(true);
+  }, []);
+
+  // Re-fetch fresh backend data whenever the user logs in
+  useEffect(() => {
+    if (!currentUser?.token) return;
+    authFetch('/api/init')
       .then(res => res.json())
       .then(json => {
         if (json.success && json.data) {
@@ -26,10 +61,11 @@ export function ClubProvider({ children }) {
           });
         }
       })
-      .catch(err => console.error('Failed to fetch initial data from backend:', err))
-      .finally(() => setIsDataLoaded(true));
-  }, []);
+      .catch(err => console.error('Failed to fetch initial data from backend:', err));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.token]);
 
+  const isAuthenticated = !!currentUser;
 
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -45,21 +81,6 @@ export function ClubProvider({ children }) {
   const [globalSearch, setGlobalSearch] = useState('');
   const [toasts, setToasts] = useState([]);
   const [theme, setTheme] = useState('light');
-
-  // Authentication State
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem(AUTH_SESSION_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (err) {
-      console.error('Error loading auth session', err);
-    }
-    return null; // Not logged in by default
-  });
-
-  const isAuthenticated = !!currentUser;
-
-  // Student LMS completion tracker
   const [completedLessons, setCompletedLessons] = useState(() => {
     try {
       const saved = localStorage.getItem(STUDENT_PROGRESS_KEY);
@@ -225,6 +246,178 @@ export function ClubProvider({ children }) {
     addToast('Signed out of Administrator session.', 'info');
   };
 
+  const updateAdminInviteKey = async (newKey) => {
+    try {
+      const response = await fetch('/api/auth/admin/invite-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newKey })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        addToast('Admin Verification Key updated successfully!', 'success');
+        logActivity('Updated Admin Verification Key', 'System Security', 'admin');
+        return { success: true };
+      } else {
+        addToast(data.error || 'Failed to update Admin Verification Key', 'error');
+        return { success: false, error: data.error };
+      }
+    } catch (err) {
+      console.error('Update admin key error:', err);
+      addToast('Network error while updating key', 'error');
+      return { success: false, error: 'Network error' };
+    }
+  };
+
+  const updateUserRole = async (userId, newRole, isStaff) => {
+    try {
+      let endpoint = '';
+      let method = 'PUT';
+      let payload = { role: newRole };
+
+      if (isStaff) {
+        endpoint = `/api/auth/admin/users/${userId}/role`;
+        payload = { newRole };
+      } else {
+        // Find existing member to reuse other fields
+        const member = data.members.find(m => m.id === userId);
+        if (!member) return { success: false, error: 'Member not found' };
+        endpoint = `/api/members/${userId}`;
+        payload = { ...member, role: newRole };
+      }
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const resData = await res.json();
+
+      if (res.ok && resData.success) {
+        setData(prev => {
+          if (isStaff) {
+            return {
+              ...prev,
+              adminUsers: prev.adminUsers.map(u => u.id === userId ? { ...u, role: newRole } : u)
+            };
+          } else {
+            return {
+              ...prev,
+              members: prev.members.map(m => m.id === userId ? { ...m, role: newRole } : m)
+            };
+          }
+        });
+        logActivity(`Updated role to ${newRole}`, isStaff ? 'Staff Directory' : 'Member Directory', 'admin');
+        addToast('Role successfully updated', 'success');
+        return { success: true };
+      } else {
+        addToast(resData.error || 'Failed to update role', 'error');
+        return { success: false, error: resData.error };
+      }
+    } catch (e) {
+      console.error('Error updating role:', e);
+      addToast('Network error', 'error');
+      return { success: false, error: 'Network error' };
+    }
+  };
+
+  const toggleUserStatus = async (userId, isStaff, newStatus) => {
+    try {
+      let endpoint = '';
+      let method = 'PUT';
+      let payload = {};
+
+      if (isStaff) {
+        endpoint = `/api/auth/admin/users/${userId}/status`;
+        payload = { isActive: newStatus };
+      } else {
+        const member = data.members.find(m => m.id === userId);
+        if (!member) return { success: false, error: 'Member not found' };
+        endpoint = `/api/members/${userId}`;
+        payload = { ...member, status: newStatus ? 'Active' : 'Suspended' };
+      }
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const resData = await res.json();
+
+      if (res.ok && resData.success) {
+        setData(prev => {
+          if (isStaff) {
+            return { ...prev, adminUsers: prev.adminUsers.map(u => u.id === userId ? { ...u, isActive: newStatus } : u) };
+          } else {
+            return { ...prev, members: prev.members.map(m => m.id === userId ? { ...m, status: newStatus ? 'Active' : 'Suspended' } : m) };
+          }
+        });
+        logActivity(`Account ${newStatus ? 'Activated' : 'Suspended'}`, 'Access Control', 'admin');
+        addToast(`Account ${newStatus ? 'activated' : 'suspended'} successfully`, 'success');
+        return { success: true };
+      } else {
+        addToast(resData.error || 'Failed to update status', 'error');
+        return { success: false, error: resData.error };
+      }
+    } catch (e) {
+      console.error('Error toggling status:', e);
+      addToast('Network error', 'error');
+      return { success: false, error: 'Network error' };
+    }
+  };
+
+  const deleteUserAccount = async (userId, isStaff) => {
+    try {
+      const endpoint = isStaff ? `/api/auth/admin/users/${userId}` : `/api/members/${userId}`;
+      const res = await fetch(endpoint, { method: 'DELETE' });
+      const resData = await res.json();
+
+      if (res.ok && resData.success) {
+        setData(prev => {
+          if (isStaff) {
+            return { ...prev, adminUsers: prev.adminUsers.filter(u => u.id !== userId) };
+          } else {
+            return { ...prev, members: prev.members.filter(m => m.id !== userId) };
+          }
+        });
+        logActivity('Deleted user account', 'Access Control', 'admin');
+        addToast('Account permanently deleted', 'success');
+        return { success: true };
+      } else {
+        addToast(resData.error || 'Failed to delete account', 'error');
+        return { success: false, error: resData.error };
+      }
+    } catch (e) {
+      console.error('Error deleting account:', e);
+      addToast('Network error', 'error');
+      return { success: false, error: 'Network error' };
+    }
+  };
+
+  const resetUserPassword = async (userId, newPassword) => {
+    try {
+      const res = await fetch(`/api/auth/admin/users/${userId}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword })
+      });
+      const resData = await res.json();
+
+      if (res.ok && resData.success) {
+        logActivity('Reset staff password', 'Access Control', 'admin');
+        addToast('Password successfully overridden', 'success');
+        return { success: true };
+      } else {
+        addToast(resData.error || 'Failed to reset password', 'error');
+        return { success: false, error: resData.error };
+      }
+    } catch (e) {
+      console.error('Error resetting password:', e);
+      addToast('Network error', 'error');
+      return { success: false, error: 'Network error' };
+    }
+  };
+
   // ==================== JOIN REQUESTS ====================
   const submitJoinRequest = async (requestData) => {
     try {
@@ -239,7 +432,7 @@ export function ClubProvider({ children }) {
         
         // Refresh local admin data if logged in as admin
         if (currentUser?.isAdmin) {
-          fetch('/api/init').then(r => r.json()).then(d => {
+          authFetch('/api/init').then(r => r.json()).then(d => {
             if (d.success) setData(prev => ({ ...prev, ...d.data }));
           });
         }
@@ -257,13 +450,13 @@ export function ClubProvider({ children }) {
 
   const approveJoinRequest = async (requestId) => {
     try {
-      const res = await fetch(`/api/admin/join-requests/${requestId}/approve`, {
+      const res = await authFetch(`/api/admin/join-requests/${requestId}/approve`, {
         method: 'POST'
       });
       const resData = await res.json();
       if (res.ok && resData.success) {
         // Refresh the global data cache
-        const initRes = await fetch('/api/init');
+        const initRes = await authFetch('/api/init');
         const initData = await initRes.json();
         if (initData.success) setData(prev => ({ ...prev, ...initData.data }));
         
@@ -280,13 +473,13 @@ export function ClubProvider({ children }) {
 
   const rejectJoinRequest = async (requestId) => {
     try {
-      const res = await fetch(`/api/admin/join-requests/${requestId}/reject`, {
+      const res = await authFetch(`/api/admin/join-requests/${requestId}/reject`, {
         method: 'POST'
       });
       const resData = await res.json();
       if (res.ok && resData.success) {
         // Refresh the global data cache
-        const initRes = await fetch('/api/init');
+        const initRes = await authFetch('/api/init');
         const initData = await initRes.json();
         if (initData.success) setData(prev => ({ ...prev, ...initData.data }));
         
@@ -1179,9 +1372,15 @@ export function ClubProvider({ children }) {
         setIsAdminLoginOpen,
         currentUser,
         isAuthenticated,
+        authFetch,
         login,
         registerAdmin,
         logout,
+        updateAdminInviteKey,
+        updateUserRole,
+        toggleUserStatus,
+        deleteUserAccount,
+        resetUserPassword,
         globalSearch,
         setGlobalSearch,
         toasts,

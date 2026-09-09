@@ -1,10 +1,11 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Get all activity logs for admin auditing
-router.get('/', async (req, res) => {
+// Get all activity logs for admin auditing — requires admin auth
+router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const logs = await prisma.activityLog.findMany({
       orderBy: { createdAt: 'desc' },

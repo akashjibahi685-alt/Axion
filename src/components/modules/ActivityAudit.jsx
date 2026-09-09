@@ -11,7 +11,9 @@ export function ActivityAudit() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await fetch('/api/admin/logs');
+        const res = await fetch('/api/admin/logs', {
+          headers: { Authorization: `Bearer ${currentUser?.token}` }
+        });
         const data = await res.json();
         setLogs(Array.isArray(data) ? data : []);
       } catch (err) {

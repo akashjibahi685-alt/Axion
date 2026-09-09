@@ -7,7 +7,8 @@ import {
   Download,
   Upload,
   RotateCcw,
-  CheckCircle2
+  CheckCircle2,
+  Lock
 } from 'lucide-react';
 
 export function SettingsPanel() {
@@ -17,11 +18,13 @@ export function SettingsPanel() {
     updateSocials,
     resetToDefaults,
     exportDatabaseJSON,
-    importDatabaseJSON
+    importDatabaseJSON,
+    updateAdminInviteKey
   } = useClub();
 
   const [brandingForm, setBrandingForm] = useState(data.branding);
   const [socialsForm, setSocialsForm] = useState(data.branding.socials);
+  const [newAdminKey, setNewAdminKey] = useState('');
 
   const handleBrandingSave = (e) => {
     e.preventDefault();
@@ -41,6 +44,15 @@ export function SettingsPanel() {
         importDatabaseJSON(event.target.result);
       };
       reader.readAsText(file);
+    }
+  };
+
+  const handleAdminKeySave = async (e) => {
+    e.preventDefault();
+    if (!newAdminKey) return;
+    const res = await updateAdminInviteKey(newAdminKey);
+    if (res.success) {
+      setNewAdminKey('');
     }
   };
 
@@ -216,6 +228,52 @@ export function SettingsPanel() {
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '12px' }}>
               <CheckCircle2 size={16} />
               <span>Update Social Links</span>
+            </button>
+          </form>
+        </div>
+
+        {/* Security & Access Control */}
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: '#fee2e2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ef4444'
+              }}
+            >
+              <Lock size={18} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Security & Access Control</h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Manage admin verification passkey</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleAdminKeySave}>
+            <div className="form-group">
+              <label className="form-label">New Admin Verification Key</label>
+              <input
+                type="password"
+                required
+                value={newAdminKey}
+                onChange={(e) => setNewAdminKey(e.target.value)}
+                className="form-input"
+                placeholder="Enter new passkey"
+              />
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                This key is required by new staff to register as administrators. Changing this will invalidate the old key.
+              </p>
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '12px', background: '#ef4444', color: 'white', border: 'none' }}>
+              <CheckCircle2 size={16} />
+              <span>Update Verification Key</span>
             </button>
           </form>
         </div>

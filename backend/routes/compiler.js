@@ -1,8 +1,9 @@
 const express = require('express');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const router = express.Router();
+const { requireAuth } = require('../middleware/authMiddleware');
 
 const tempDir = path.join(__dirname, '../temp');
 
@@ -14,7 +15,8 @@ if (!fs.existsSync(tempDir)) {
 // Languages natively executable on this host
 const NATIVE_LANGS = new Set(['c', 'cpp', 'c++', 'python', 'python3', 'javascript', 'node', 'js', 'java']);
 
-router.post('/run', async (req, res) => {
+// Code execution — requires authenticated user
+router.post('/run', requireAuth, async (req, res) => {
   const { code, language, stdin = '', args = '' } = req.body;
 
   if (!code || !code.trim()) {
@@ -84,53 +86,58 @@ router.post('/run', async (req, res) => {
       fs.writeFileSync(stdinPath, stdin, 'utf8');
     }
 
-    const argsStr = args && args.trim() ? ` ${args.trim()}` : '';
-    const stdinRedir = (stdin && stdin.trim()) ? ` < "${stdinPath}"` : '';
-
-    let execCommand;
-    if (normLang === 'c' || normLang === 'cpp' || normLang === 'c++') {
-      execCommand = `${command} "${filePath}" -o "${outPath}" && "${outPath}"${argsStr}${stdinRedir}`;
-    } else if (isJava) {
-      execCommand = `javac "${filePath}" && java -cp "${tempDir}" Main${argsStr}${stdinRedir}`;
-    } else {
-      execCommand = `${command} "${filePath}"${argsStr}${stdinRedir}`;
-    }
-
     const startTime = Date.now();
 
-    exec(execCommand, {
-      timeout: 10000,
-      maxBuffer: 1024 * 1024 * 10, // 10MB
-      cwd: tempDir,
-    }, (error, stdout, stderr) => {
-      const timeMs = Date.now() - startTime;
-      cleanup();
 
-      if (error) {
-        if (error.killed || error.signal === 'SIGTERM') {
-          return res.json({
-            output: stdout || '',
-            error: `Execution Timeout: Program exceeded the 10-second limit.`,
-            timeMs,
-            exitCode: 124,
-          });
+    if (normLang === 'c' || normLang === 'cpp' || normLang === 'c++') {
+      // Two-step: compile then run
+      execFile(command, [filePath, '-o', outPath], { timeout: 10000 }, (compileErr, _, compileStderr) => {
+        if (compileErr) {
+          cleanup();
+          return res.json({ output: '', error: compileStderr || compileErr.message, timeMs: Date.now() - startTime, exitCode: 1 });
         }
-        // Compilation or runtime error — still return 200 with error info
-        return res.json({
-          output: stdout || '',
-          error: stderr || error.message || 'Execution failed',
-          timeMs,
-          exitCode: error.code || 1,
+        const runArgs = args && args.trim() ? args.trim().split(/\s+/) : [];
+        const stdinOpts = (stdin && stdin.trim()) ? { input: stdin } : {};
+        execFile(outPath, runArgs, { timeout: 10000, maxBuffer: 1024 * 1024 * 10, ...stdinOpts }, (runErr, stdout, stderr) => {
+          cleanup();
+          const timeMs = Date.now() - startTime;
+          if (runErr && (runErr.killed || runErr.signal === 'SIGTERM')) {
+            return res.json({ output: stdout || '', error: 'Execution Timeout: Program exceeded the 10-second limit.', timeMs, exitCode: 124 });
+          }
+          res.json({ output: stdout || '', error: stderr || (runErr ? runErr.message : null), timeMs, exitCode: runErr ? (runErr.code || 1) : 0 });
         });
-      }
-
-      res.json({
-        output: stdout || '',
-        error: stderr || null,
-        timeMs,
-        exitCode: 0,
       });
-    });
+      return;
+    } else if (isJava) {
+      execFile('javac', [filePath], { timeout: 10000 }, (compileErr, _, compileStderr) => {
+        if (compileErr) {
+          cleanup();
+          return res.json({ output: '', error: compileStderr || compileErr.message, timeMs: Date.now() - startTime, exitCode: 1 });
+        }
+        const runArgs = args && args.trim() ? args.trim().split(/\s+/) : [];
+        execFile('java', ['-cp', tempDir, 'Main', ...runArgs], { timeout: 10000, maxBuffer: 1024 * 1024 * 10 }, (runErr, stdout, stderr) => {
+          cleanup();
+          const timeMs = Date.now() - startTime;
+          res.json({ output: stdout || '', error: stderr || (runErr ? runErr.message : null), timeMs, exitCode: runErr ? 1 : 0 });
+        });
+      });
+      return;
+    } else {
+      const execArgs = args && args.trim() ? args.trim().split(/\s+/) : [];
+      execFile(command, [filePath, ...execArgs], {
+        timeout: 10000,
+        maxBuffer: 1024 * 1024 * 10,
+        input: (stdin && stdin.trim()) ? stdin : undefined,
+        cwd: tempDir
+      }, (error, stdout, stderr) => {
+        const timeMs = Date.now() - startTime;
+        cleanup();
+        if (error && (error.killed || error.signal === 'SIGTERM')) {
+          return res.json({ output: stdout || '', error: 'Execution Timeout: Program exceeded the 10-second limit.', timeMs, exitCode: 124 });
+        }
+        res.json({ output: stdout || '', error: stderr || (error ? error.message : null), timeMs, exitCode: error ? (error.code || 1) : 0 });
+      });
+    }
 
   } catch (err) {
     cleanup();

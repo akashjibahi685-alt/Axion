@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useClub } from '../../context/ClubContext';
 import {
   Play, Bug, Square, Share2, Save, Wand2, Download, Upload,
   ChevronLeft, ChevronRight, HelpCircle, Settings, Maximize2, Minimize2,
@@ -38,6 +39,7 @@ const NATIVE_LANGS = new Set(['c', 'cpp', 'python', 'javascript', 'java']);
 // ─── IDE Component ───────────────────────────────────────────────────────────
 
 export function IDE() {
+  const { currentUser } = useClub();
   // ── Code & Editor State ──
   const [language, setLanguage] = useState('c');
   const [tabs, setTabs] = useState([{ name: 'main.c', lang: 'c', code: LANG_TEMPLATES.c }]);
@@ -257,7 +259,10 @@ export function IDE() {
     try {
       const res = await fetch('/api/compiler/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser?.token ? { Authorization: `Bearer ${currentUser.token}` } : {})
+        },
         body: JSON.stringify({
           language,
           code,
@@ -551,14 +556,14 @@ export function IDE() {
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      height: 'calc(100vh - 75px)',
+      height: 'calc(100vh - 72px)',
       background: '#1e222b',
       color: '#e2e8f0',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       overflow: 'hidden',
       borderRadius: '0px',
       boxShadow: 'none',
-      margin: '-24px -32px -48px -32px',
+      margin: '0 -32px -48px -32px',
       width: 'calc(100% + 64px)',
     }}>
 

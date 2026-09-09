@@ -16,7 +16,8 @@ import {
   Sparkles,
   LogOut,
   UserPlus,
-  Code2
+  Code2,
+  UserCog
 } from 'lucide-react';
 
 export function Sidebar() {
@@ -40,6 +41,10 @@ export function Sidebar() {
     { id: 'audit', label: 'Security & Audit', icon: ShieldCheck, badge: null, staffOnly: true },
     { id: 'settings', label: 'Branding & Settings', icon: Settings, badge: null, staffOnly: true },
   ];
+
+  if (currentUser?.role === 'Core Lead' || currentUser?.role === 'Admin') {
+    allNavItems.splice(4, 0, { id: 'roles', label: 'Role Management', icon: UserCog, badge: 'Lead', staffOnly: true });
+  }
 
   const navItems = allNavItems.filter(item => isStaff || !item.staffOnly);
 
@@ -172,6 +177,7 @@ export function Sidebar() {
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 position: 'relative'
               }}
+              className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
               title={collapsed ? item.label : undefined}
             >
               <Icon size={19} color={isActive ? 'var(--cyan-accent)' : 'currentColor'} />

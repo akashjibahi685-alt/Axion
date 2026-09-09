@@ -4,6 +4,7 @@ import { Modal } from '../layout/Modal';
 import { GithubIcon } from '../common/Icons';
 import { StudentLearningHub } from './StudentLearningHub';
 
+import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
   MapPin,
@@ -159,16 +160,15 @@ export function LivePortalPreview() {
         </div>
 
         <nav style={{ display: 'flex', alignItems: 'center', gap: '24px', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-
-          <a href="#learning" style={{ color: '#0891b2', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+          <a href="#learning" className="wavy-hover-link" style={{ color: '#0891b2', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
             <GraduationCap size={16} />
             <span>Learning Hub</span>
           </a>
-          <a href="#about" style={{ color: 'inherit' }}>About</a>
-          <a href="#events" style={{ color: 'inherit' }}>Events</a>
-          <a href="#projects" style={{ color: 'inherit' }}>Projects</a>
-          <a href="#blog" style={{ color: 'inherit' }}>Articles</a>
-          <a href="#faq" style={{ color: 'inherit' }}>FAQ</a>
+          <a href="#about" className="wavy-hover-link" style={{ color: 'inherit' }}>About</a>
+          <a href="#events" className="wavy-hover-link" style={{ color: 'inherit' }}>Events</a>
+          <a href="#projects" className="wavy-hover-link" style={{ color: 'inherit' }}>Projects</a>
+          <a href="#blog" className="wavy-hover-link" style={{ color: 'inherit' }}>Articles</a>
+          <a href="#faq" className="wavy-hover-link" style={{ color: 'inherit' }}>FAQ</a>
         </nav>
 
         <div className="auth-actions-group" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -252,6 +252,7 @@ export function LivePortalPreview() {
               backgroundImage: `url(${slide})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
+              backgroundAttachment: 'fixed',
               opacity: currentSlide === index ? 1 : 0,
               transition: 'opacity 1.5s ease-in-out',
               zIndex: 0
@@ -315,18 +316,34 @@ export function LivePortalPreview() {
             {data.cmsPages?.hero?.title}
           </h1>
 
-          <p
+          <div
+            key={currentSlide}
             style={{
               fontSize: '1.25rem',
               color: '#cbd5e1',
               maxWidth: '780px',
               margin: '0 auto 40px',
               lineHeight: '1.6',
-              textShadow: '0 2px 10px rgba(0,0,0,0.5)'
+              textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              gap: '0.25em'
             }}
           >
-            {data.cmsPages?.hero?.subtitle}
-          </p>
+            {(data.cmsPages?.hero?.subtitle || "Join an elite community of student researchers, engineers, and builders developing open-source models, competitive AI solutions, and state-of-the-art intelligent systems.")
+              .split(" ")
+              .map((word, index) => (
+                <motion.span
+                  key={index}
+                  initial={{ opacity: 0, y: 20, filter: 'blur(10px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  transition={{ duration: 0.6, delay: index * 0.05 + 0.5, ease: 'easeOut' }}
+                >
+                  {word}
+                </motion.span>
+            ))}
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
             <a href="#events" className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '0.85rem', background: '#0ea5e9', border: 'none' }}>
@@ -552,7 +569,7 @@ export function LivePortalPreview() {
                 { label: 'Research Showcase', href: '#projects' },
                 { label: 'Club FAQ', href: '#faq' }
               ]).map((link, idx) => (
-                <a key={idx} href={link.href} style={{ color: 'inherit' }}>{link.label}</a>
+                <a key={idx} href={link.href} className="wavy-hover-link" style={{ color: 'inherit' }}>{link.label}</a>
               ))}
             </div>
           </div>
