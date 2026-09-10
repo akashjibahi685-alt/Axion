@@ -217,7 +217,7 @@ if (fs.existsSync(frontendDistPath)) {
   app.use(express.static(frontendDistPath));
   
   // SPA Fallback for frontend routing (must be the last route)
-  app.get('*', (req, res) => {
+  app.use((req, res) => {
     res.sendFile(path.join(frontendDistPath, 'index.html'));
   });
 } else {
