@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "npx prisma db push --accept-data-loss && npx prisma db seed && node server.js",
+    "start": "node init-env.js && npx prisma db push --accept-data-loss && npx prisma db seed && node server.js",
     "dev": "nodemon --config nodemon.json server.js",
     "postinstall": "npx prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
