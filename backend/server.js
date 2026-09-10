@@ -211,9 +211,20 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-app.get('/', (req, res) => {
-  res.json({ message: 'AXION Backend API Server is running', status: 'ok', healthCheck: '/api/health' });
-});
+// Serve frontend built files in production
+const frontendDistPath = path.join(__dirname, '../dist');
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+  
+  // SPA Fallback for frontend routing (must be the last route)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.json({ message: 'AXION Backend API Server is running', status: 'ok', healthCheck: '/api/health' });
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`AXION Backend Server running on http://localhost:${PORT}`);

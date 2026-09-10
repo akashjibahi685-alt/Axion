@@ -8,6 +8,8 @@
     "dev:frontend": "vite",
     "dev:backend": "npm run dev --prefix backend",
     "build": "vite build",
+    "postinstall": "npm install --prefix backend",
+    "start": "npm start --prefix backend",
     "lint": "oxlint",
     "preview": "vite preview"
   },
