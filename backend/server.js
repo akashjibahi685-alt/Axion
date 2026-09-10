@@ -4,6 +4,12 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Provide fallbacks for Railway and other environments where .env is not present
+process.env.DATABASE_URL = process.env.DATABASE_URL || "file:./dev.db";
+process.env.JWT_SECRET = process.env.JWT_SECRET || "fallback_jwt_secret_for_railway_deployments_only";
+process.env.ADMIN_KEY_SALT = process.env.ADMIN_KEY_SALT || "axion_fallback_salt";
+
+
 const authRoutes = require('./routes/auth');
 const memberRoutes = require('./routes/members');
 const statsRoutes = require('./routes/stats');
@@ -226,6 +232,6 @@ if (fs.existsSync(frontendDistPath)) {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`AXION Backend Server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`AXION Backend Server running on http://0.0.0.0:${PORT}`);
 });
