@@ -26,18 +26,44 @@ async function main() {
   });
 
   // 2. Users
-  const passwordHash = await bcrypt.hash('password123', 10);
+  const studentPasswordHash = await bcrypt.hash('member123', 10);
   
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@axion.edu' },
+    where: { email: 'admin@axion-aiml.club' },
     update: {},
     create: {
-      email: 'admin@axion.edu',
-      name: 'Axion Admin',
-      passwordHash,
+      email: 'admin@axion-aiml.club',
+      name: 'Aarav (Admin)',
+      passwordHash: await bcrypt.hash('admin', 10),
       role: 'Admin',
       isAdmin: true,
       title: 'President',
+    }
+  });
+
+  const mentorUser = await prisma.user.upsert({
+    where: { email: 'mentor@axion-aiml.club' },
+    update: {},
+    create: {
+      email: 'mentor@axion-aiml.club',
+      name: 'Elena (Mentor)',
+      passwordHash: await bcrypt.hash('mentor', 10),
+      role: 'Admin',
+      isAdmin: true,
+      title: 'Technical Mentor',
+    }
+  });
+
+  const leadUser = await prisma.user.upsert({
+    where: { email: 'lead@axion-aiml.club' },
+    update: {},
+    create: {
+      email: 'lead@axion-aiml.club',
+      name: 'Sophia (Lead)',
+      passwordHash: await bcrypt.hash('lead', 10),
+      role: 'Admin',
+      isAdmin: true,
+      title: 'Core Lead',
     }
   });
 
@@ -50,7 +76,7 @@ async function main() {
       create: {
         email,
         name: faker.person.fullName(),
-        passwordHash,
+        passwordHash: studentPasswordHash,
         role: 'Student',
         isAdmin: false,
         avatarUrl: faker.image.avatar(),
