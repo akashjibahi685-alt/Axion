@@ -216,6 +216,17 @@ async function main() {
     }
   });
 
+  // 11. Admin Verification Token
+  await prisma.adminInviteToken.create({
+    data: {
+      tokenHash: "5216b3acb0c11037da8123e92a99321c7470a74723ca70909de43a36fdfed2b9", // Hash of "axion_admin_2026"
+      role: "Admin",
+      permissions: "ALL",
+      expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 10)),
+      isUsed: false
+    }
+  });
+
   console.log('Seed completed successfully!');
 }
 
